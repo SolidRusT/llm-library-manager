@@ -1,4 +1,5 @@
 mod steampunk_theme;
+mod config;
 
 use anyhow::Result;
 use clap::{App, Arg, SubCommand};
@@ -7,6 +8,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use config::Config;
 use steampunk_theme::steampunkify;
 
 #[derive(Serialize, Deserialize)]
@@ -67,8 +69,11 @@ async fn main() -> Result<()> {
     )
     .get_matches();
 
-  let config_file = matches.value_of("config").unwrap_or("config.json");
-  let mut data_models: HashMap<String, DataModel> = load_data_models(config_file)?;
+  let config = Config::new(
+      matches.value_of("config").unwrap_or("config.json"),
+      "data_models.json",
+  );
+  let mut data_models: HashMap<String, DataModel> = load_data_models(&config)?;
 
   match matches.subcommand() {
     ("show", Some(matches)) => {
@@ -79,12 +84,12 @@ async fn main() -> Result<()> {
       let model_name = matches.value_of("MODEL").unwrap();
       let dest = matches.value_of("DEST").unwrap();
       move_model(&mut data_models, model_name, dest).await?;
-      save_data_models(config_file, &data_models)?;
+      save_data_models(&config, &data_models)?;
     }
     ("delete", Some(matches)) => {
       let model_name = matches.value_of("MODEL").unwrap();
       delete_model(&mut data_models, model_name).await?;
-      save_data_models(config_file, &data_models)?;
+      save_data_models(&config, &data_models)?;
     }
     _ => {
       println!("Invalid command. Use --help for more information.");
@@ -145,8 +150,9 @@ async fn delete_model(models: &mut HashMap<String, DataModel>, model_name: &str)
   Ok(())
 }
 
-fn load_data_models(config_file: &str) -> Result<HashMap<String, DataModel>> {
-  let mut file = fs::File::open(config_file).or_else(|_| fs::File::create(config_file))?;
+fn load_data_models(config: &Config) -> Result<HashMap<String, DataModel>> {
+  let mut file = fs::File::open(&config.config_file)
+      .or_else(|_| fs::File::create(&config.config_file))?;
   let mut contents = String::new();
   file.read_to_string(&mut contents)?;
 
@@ -159,9 +165,9 @@ fn load_data_models(config_file: &str) -> Result<HashMap<String, DataModel>> {
   Ok(data_models)
 }
 
-fn save_data_models(config_file: &str, data_models: &HashMap<String, DataModel>) -> Result<()> {
+fn save_data_models(config: &Config, data_models: &HashMap<String, DataModel>) -> Result<()> {
+  let mut file = fs::File::create(&config.config_file)?;
   let contents = serde_json::to_string(data_models)?;
-  let mut file = fs::File::create(config_file)?;
   file.write_all(contents.as_bytes())?;
 
   Ok(())
