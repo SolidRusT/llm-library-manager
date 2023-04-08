@@ -89,7 +89,7 @@ async fn main() -> Result<()> {
         _ => {
             println!("Invalid command. Use --help for more information.");
         }
-    }
+    }    
 
     Ok(())
 }
